@@ -1,13 +1,193 @@
-Version: 1.0
+# =====================================
+# ANALISIS COMPLETO BASE DE DATOS
+# =====================================
 
-RestoreWorkspace: Default
-SaveWorkspace: Default
-AlwaysSaveHistory: Default
+# =====================================
+# 1 INSTALAR Y CARGAR LIBRERIAS
+# =====================================
 
-EnableCodeIndexing: Yes
-UseSpacesForTab: Yes
-NumSpacesForTab: 2
-Encoding: UTF-8
+packages <- c("readxl","dplyr","ggplot2","corrplot","extrafont")
 
-RnwWeave: Sweave
-LaTeX: pdfLaTeX
+for(p in packages){
+  if(!require(p, character.only = TRUE)){
+    install.packages(p, dependencies = TRUE)
+    library(p, character.only = TRUE)
+  }
+}
+
+# cargar fuentes
+loadfonts(quiet = TRUE)
+
+# =====================================
+# 2 CREAR CARPETA PARA GRAFICOS
+# =====================================
+
+if(!dir.exists("graficos")){
+  dir.create("graficos")
+}
+
+# =====================================
+# 3 CARGAR ARCHIVO EXCEL
+# =====================================
+
+archivo <- "Basa_de_datos_limpia.xlsx"
+
+weekly_visits <- read_excel(archivo, sheet="Weekly Visits", skip=5)
+financials <- read_excel(archivo, sheet="Financials", skip=5)
+lbs_sold <- read_excel(archivo, sheet="Lbs. Sold", skip=5)
+daily_visits <- read_excel(archivo, sheet="Daily Visits", skip=5)
+
+# =====================================
+# 4 LIMPIAR DATOS
+# =====================================
+
+weekly_visits <- weekly_visits %>%
+  mutate(across(everything(), ~type.convert(.x, as.is = TRUE)))
+
+financials <- financials %>%
+  mutate(across(everything(), ~type.convert(.x, as.is = TRUE)))
+
+lbs_sold <- lbs_sold %>%
+  mutate(across(everything(), ~type.convert(.x, as.is = TRUE)))
+
+daily_visits <- daily_visits %>%
+  mutate(across(everything(), ~type.convert(.x, as.is = TRUE)))
+
+# =====================================
+# 5 FUNCION DE ANALISIS
+# =====================================
+
+analisis_datos <- function(data, nombre){
+
+  cat("\n========================\n")
+  cat("Analisis de:", nombre,"\n")
+  cat("========================\n")
+
+  # seleccionar numericas
+  data_num <- data %>% select(where(is.numeric))
+
+  if(ncol(data_num)==0){
+    cat("No hay variables numericas\n")
+    return()
+  }
+
+  # =====================================
+  # TABLA DE ESTADISTICAS
+  # =====================================
+
+  estadisticas <- data.frame(
+    Variable = names(data_num),
+    Media = sapply(data_num, mean, na.rm=TRUE),
+    Mediana = sapply(data_num, median, na.rm=TRUE),
+    SD = sapply(data_num, sd, na.rm=TRUE),
+    Min = sapply(data_num, min, na.rm=TRUE),
+    Max = sapply(data_num, max, na.rm=TRUE)
+  )
+
+  print(estadisticas)
+
+  write.csv(
+    estadisticas,
+    paste0("graficos/estadisticas_",nombre,".csv"),
+    row.names = FALSE
+  )
+
+  # =====================================
+  # HISTOGRAMAS
+  # =====================================
+
+  for(i in names(data_num)){
+
+    g <- ggplot(data_num, aes(x=.data[[i]])) +
+      geom_histogram(
+        bins=20,
+        fill="skyblue",
+        color="black"
+      ) +
+      labs(
+        title=paste("Histograma de",i,"-",nombre),
+        x=i,
+        y="Frecuencia"
+      ) +
+      theme_minimal() +
+      theme(
+        text=element_text(family="Times New Roman")
+      )
+
+    print(g)   # MUESTRA EL HISTOGRAMA EN PLOT
+
+    ggsave(
+      paste0("graficos/hist_",nombre,"_",i,".png"),
+      plot=g,
+      width=8,
+      height=5,
+      dpi=300
+    )
+  }
+
+  # =====================================
+  # DIAGRAMAS DE DISPERSION
+  # =====================================
+
+  if(ncol(data_num) > 1){
+
+    # mostrar en Plot
+    pairs(
+      data_num,
+      main=paste("Diagramas de dispersion -",nombre)
+    )
+
+    # guardar
+    png(
+      paste0("graficos/scatter_",nombre,".png"),
+      width=1200,
+      height=1200,
+      res=300
+    )
+
+    pairs(
+      data_num,
+      main=paste("Diagramas de dispersion -",nombre)
+    )
+
+    dev.off()
+  }
+
+  # =====================================
+  # MATRIZ DE CORRELACION
+  # =====================================
+
+  if(ncol(data_num) > 1){
+
+    cor_matrix <- cor(data_num, use="complete.obs")
+
+    print(cor_matrix)
+
+    png(
+      paste0("graficos/correlacion_",nombre,".png"),
+      width=1200,
+      height=1200,
+      res=300
+    )
+
+    corrplot(
+      cor_matrix,
+      method="color",
+      type="upper",
+      tl.col="black",
+      tl.cex=0.8
+    )
+
+    dev.off()
+  }
+
+}
+
+# =====================================
+# 6 EJECUTAR ANALISIS
+# =====================================
+
+analisis_datos(weekly_visits,"weekly_visits")
+analisis_datos(financials,"financials")
+analisis_datos(lbs_sold,"lbs_sold")
+analisis_datos(daily_visits,"daily_visits")
