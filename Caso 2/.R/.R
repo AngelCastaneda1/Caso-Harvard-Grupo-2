@@ -1,8 +1,7 @@
 # ============================================================
-# HOLLYWOOD RULES — Análisis Estadístico (VERSIÓN FINAL)
+# HOLLYWOOD RULES — Análisis Estadístico 
 # ============================================================
 
-# ---- CONFIGURACIÓN ----
 options(repos = c(CRAN = "https://cloud.r-project.org"))
 
 install.packages(c("dplyr", "ggplot2"))
@@ -11,7 +10,7 @@ library(dplyr)
 library(ggplot2)
 
 # ============================================================
-# CARGAR DATOS (CSV SIN HEADER)
+# CARGAR DATOS 
 # ============================================================
 df <- read.csv(file.choose(), header = FALSE, stringsAsFactors = FALSE)
 
@@ -49,32 +48,16 @@ df$CriticsScore <- as.numeric(df$CriticsScore)
 
 df <- na.omit(df)
 
-# Variable dummy MPAA
 df$MPAA_D <- ifelse(df$MPAA == "R", 1, 0)
 
 # ============================================================
 # PREGUNTA 1
 # ============================================================
 
-cat("\nOpening Gross\n")
-cat("Mínimo:", min(df$`Opening Gross`), "\n")
-cat("Promedio:", mean(df$`Opening Gross`), "\n")
-cat("Máximo:", max(df$`Opening Gross`), "\n")
+cat("\nPREGUNTA 1\n")
 
-cat("\nTotal U.S. Gross\n")
-cat("Mínimo:", min(df$`Total U.S. Gross`), "\n")
-cat("Promedio:", mean(df$`Total U.S. Gross`), "\n")
-cat("Máximo:", max(df$`Total U.S. Gross`), "\n")
-
-cat("\nTotal Non-U.S. Gross\n")
-cat("Mínimo:", min(df$`Total Non-U.S. Gross`), "\n")
-cat("Promedio:", mean(df$`Total Non-U.S. Gross`), "\n")
-cat("Máximo:", max(df$`Total Non-U.S. Gross`), "\n")
-
-cat("\nOpening Theatres\n")
-cat("Mínimo:", min(df$`Opening Theatres`), "\n")
-cat("Promedio:", mean(df$`Opening Theatres`), "\n")
-cat("Máximo:", max(df$`Opening Theatres`), "\n")
+summary(df[, c("Opening Gross", "Total U.S. Gross",
+               "Total Non-U.S. Gross", "Opening Theatres")])
 
 cat("\nNúmero de comedias:", sum(df$Genre == "Comedy"), "\n")
 cat("Películas R-rated:", sum(df$MPAA == "R"), "\n")
@@ -87,11 +70,8 @@ df$ROI_US <- (df$`Total U.S. Gross` - df$Budget) / df$Budget
 
 cat("\nROI promedio:", mean(df$ROI_US), "\n")
 
-t_test <- t.test(df$ROI_US, conf.level = 0.95)
-print(t_test)
-
-t_test_12 <- t.test(df$ROI_US, mu = 0.12, alternative = "greater")
-print(t_test_12)
+print(t.test(df$ROI_US))
+print(t.test(df$ROI_US, mu = 0.12, alternative = "greater"))
 
 # ============================================================
 # PREGUNTA 3
@@ -104,28 +84,25 @@ df <- df %>%
   )
 
 # 3A
-ttest_3a <- t.test(
+print(t.test(
   df$`Total U.S. Gross`[df$is_comedy == 1],
   df$`Total U.S. Gross`[df$is_comedy == 0]
-)
-print(ttest_3a)
+))
 
 # 3B
-ttest_3b <- t.test(
+print(t.test(
   df$roi_us[df$is_comedy == 1],
   df$roi_us[df$is_comedy == 0]
-)
-print(ttest_3b)
+))
 
 # ============================================================
 # PREGUNTA 4
 # ============================================================
 
-ttest_4 <- t.test(
+print(t.test(
   df$`Total U.S. Gross`[df$MPAA_D == 1],
   df$`Total U.S. Gross`[df$MPAA_D == 0]
-)
-print(ttest_4)
+))
 
 # ============================================================
 # PREGUNTA 5
@@ -139,20 +116,63 @@ modelo_completo <- lm(
 summary(modelo_completo)
 
 # ============================================================
-# REGRESIONES ADICIONALES (PUNTO 3)
+# PREGUNTA 6
+# Regresión Opening Weekend
 # ============================================================
+
+cat("\nPREGUNTA 6\n")
 
 model_opening <- lm(`Opening Gross` ~ Budget + Sequel + `Opening Theatres` + Summer, data = df)
 summary(model_opening)
 
+# ============================================================
+# PREGUNTA 7
+# Regla del 25%
+# ============================================================
+
+cat("\nPREGUNTA 7\n")
+
 model_total <- lm(`Total U.S. Gross` ~ `Opening Gross` + Budget + Sequel, data = df)
 summary(model_total)
+
+# ============================================================
+# PREGUNTA 8
+# Regresión con críticos
+# ============================================================
+
+cat("\nPREGUNTA 8\n")
 
 model_critics <- lm(`Total U.S. Gross` ~ `Opening Gross` + Budget + CriticsScore, data = df)
 summary(model_critics)
 
-model_interaction <- lm(`Total U.S. Gross` ~ `Opening Gross` + Budget + CriticsScore * is_comedy, data = df)
+# ============================================================
+# PREGUNTA 9
+# Interacción críticos × comedia
+# ============================================================
+
+cat("\nPREGUNTA 9\n")
+
+model_interaction <- lm(
+  `Total U.S. Gross` ~ `Opening Gross` + Budget + CriticsScore * is_comedy,
+  data = df
+)
+
 summary(model_interaction)
+
+# ============================================================
+# PREGUNTA 10
+# Star Power (aproximación con Budget)
+# ============================================================
+
+cat("\nPREGUNTA 10\n")
+
+model_star <- lm(`Total U.S. Gross` ~ Budget + `Opening Gross`, data = df)
+summary(model_star)
+
+cat("\nInterpretación sugerida:\n")
+cat("El presupuesto se usa como proxy de 'star power'. Si es significativo,\n")
+cat("indica que películas con mayor inversión (actores conocidos, marketing)\n")
+cat("tienden a generar mayor taquilla.\n")
 
 # ============================================================
 # GRÁFICAS
@@ -185,7 +205,7 @@ print(g3)
 print(g4)
 
 # ============================================================
-# EXPORTAR GRÁFICAS
+# EXPORTAR
 # ============================================================
 
 ggsave("g1.png", g1)
@@ -193,4 +213,4 @@ ggsave("g2.png", g2)
 ggsave("g3.png", g3)
 ggsave("g4.png", g4)
 
-cat("\nAnalisis completado\n")
+cat("\nAnalisis completo finalizado\n")
